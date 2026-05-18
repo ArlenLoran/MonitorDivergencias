@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef, type RefObject, type FormEvent } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import * as sp from './services/spService';
 import { 
   CheckCircle2, XCircle, ChevronLeft, ChevronRight, RefreshCcw, 
   X, Info, Download, BookOpen, ShieldCheck, Search,
@@ -88,9 +89,8 @@ const INITIAL_DATA: Section[] = [
 ];
 
 const INITIAL_USERS: User[] = [
-  { id: 'u-1', name: 'Arlen Loran', email: 'arlenloran@gmail.com', role: 'admin', lastActive: '14/05/2026, 01:05:07', status: 'Ativo' },
-  { id: 'u-2', name: 'Editor Operacional', email: 'editor@empresa.com', role: 'editor', lastActive: '13/05/2026, 18:30:15', status: 'Ativo' },
-  { id: 'u-3', name: 'Visualizador Geral', email: 'viewer@empresa.com', role: 'viewer', lastActive: '14/05/2026, 00:15:44', status: 'Ativo' },
+  { id: 'u-1', name: 'Arlen Oliveira', email: 'Arlen.Oliveira@dhl.com', role: 'admin', lastActive: 'Nunca', status: 'Ativo' },
+  { id: 'u-2', name: 'Arlen Loran', email: 'arlenloran@gmail.com', role: 'admin', lastActive: 'Nunca', status: 'Ativo' },
 ];
 
 function useScrollIndicator(ref: RefObject<HTMLDivElement | null>) {
@@ -1310,7 +1310,7 @@ function UserManager({ users, setUsers, isWarRoom }: { users: User[], setUsers: 
   );
 }
 
-function DashboardView({ data, isWarRoom, refreshCountdown, isRefreshing, refreshData, totalDivergences, criticalMetrics, handleWidthChange, getPackedSections, setSelectedMetric, isAdmin, metricCountdowns }: { 
+function DashboardView({ data, isWarRoom, refreshCountdown, isRefreshing, refreshData, totalDivergences, criticalMetrics, handleWidthChange, getPackedSections, setSelectedMetric, isAdmin, metricCountdowns, setView }: { 
   data: Section[], 
   isWarRoom: boolean, 
   refreshCountdown: number, 
@@ -1322,7 +1322,8 @@ function DashboardView({ data, isWarRoom, refreshCountdown, isRefreshing, refres
   getPackedSections: () => any[],
   setSelectedMetric: (m: Metric) => void,
   isAdmin: boolean,
-  metricCountdowns: Record<string, number>
+  metricCountdowns: Record<string, number>,
+  setView: (v: string) => void
 }) {
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
@@ -1461,28 +1462,45 @@ function DashboardView({ data, isWarRoom, refreshCountdown, isRefreshing, refres
 
       <div className={`flex flex-wrap items-stretch gap-x-12 gap-y-12 px-2 transition-all duration-700 mx-auto ${isWarRoom ? 'max-w-[1700px]' : 'max-w-[1400px]'}`}>
         <AnimatePresence mode="popLayout">
-          {getPackedSections().map(({ section, config }) => (
-            <motion.div 
-              layout
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              key={section.title} 
-              className="transition-all duration-500 flex flex-col" 
-              style={{ 
-                width: `calc(${config.width}% - ${config.width === 100 ? '0px' : '24px'})`,
-                minWidth: '320px',
-                flexGrow: 1
-              }}
-            >
-              <SectionContainer 
-                section={section} 
-                onCardClick={setSelectedMetric} 
-                isWarRoom={isWarRoom} 
-                metricCountdowns={metricCountdowns}
-              />
-            </motion.div>
-          ))}
+          {getPackedSections().length > 0 ? (
+            getPackedSections().map(({ section, config }) => (
+              <motion.div 
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                key={section.title} 
+                className="transition-all duration-500 flex flex-col" 
+                style={{ 
+                  width: `calc(${config.width}% - ${config.width === 100 ? '0px' : '24px'})`,
+                  minWidth: '320px',
+                  flexGrow: 1
+                }}
+              >
+                <SectionContainer 
+                  section={section} 
+                  onCardClick={setSelectedMetric} 
+                  isWarRoom={isWarRoom} 
+                  metricCountdowns={metricCountdowns}
+                />
+              </motion.div>
+            ))
+          ) : (
+            <div className="w-full flex flex-col items-center justify-center py-20 bg-white/5 rounded-3xl border border-white/10 border-dashed">
+              <Activity className="w-16 h-16 text-slate-700 mb-6" />
+              <h3 className="text-xl font-black uppercase italic text-slate-500">Dashboard Vazio</h3>
+              <p className="text-slate-600 text-sm mb-8">Nenhuma divisão ou card foi cadastrado ainda.</p>
+              {isAdmin && (
+                <button 
+                  onClick={() => setView('divisions')}
+                  className="px-10 py-4 bg-brand-red text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-600 transition-all active:scale-95 shadow-xl shadow-red-900/20 flex items-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  Iniciar Configuração
+                </button>
+              )}
+            </div>
+          )}
         </AnimatePresence>
       </div>
     </div>
@@ -1505,6 +1523,12 @@ export default function App() {
     executeMetricQuery 
   } = useDataPersistence();
   
+  const userEmail = sp.getCurrentSharePointUserEmail() || "arlenloran@gmail.com";
+  const currentUser = users.find(u => u.email.toLowerCase() === userEmail.toLowerCase());
+  const isAdmin = currentUser?.role === 'admin' || 
+                  userEmail.toLowerCase() === 'arlenloran@gmail.com' || 
+                  userEmail.toLowerCase() === 'arlen.oliveira@dhl.com';
+
   const [currentView, setCurrentView] = useState('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState<Metric | null>(null);
@@ -1724,23 +1748,26 @@ export default function App() {
               handleWidthChange={handleWidthChange}
               getPackedSections={getPackedSections}
               setSelectedMetric={setSelectedMetric}
-              isAdmin={false}
+              isAdmin={isAdmin}
               metricCountdowns={metricCountdowns}
+              setView={setView}
             />
           } />
           <Route path="/" element={
             <div className="relative">
               {/* Top Navigation to System */}
               <div className="flex justify-end mb-4 px-2">
-                <button 
-                  onClick={() => setView('divisions')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                    isWarRoom ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                  }`}
-                >
-                  <Settings className="w-3 h-3" />
-                  Painel Administrativo
-                </button>
+                {isAdmin && (
+                  <button 
+                    onClick={() => setView('divisions')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                      isWarRoom ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}
+                  >
+                    <Settings className="w-3 h-3" />
+                    Painel Administrativo
+                  </button>
+                )}
               </div>
 
               <DashboardView 
@@ -1754,8 +1781,9 @@ export default function App() {
                 handleWidthChange={handleWidthChange}
                 getPackedSections={getPackedSections}
                 setSelectedMetric={setSelectedMetric}
-                isAdmin={true}
+                isAdmin={isAdmin}
                 metricCountdowns={metricCountdowns}
+                setView={setView}
               />
             </div>
           } />

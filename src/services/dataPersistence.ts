@@ -60,6 +60,12 @@ export function useDataPersistence() {
       ]);
 
       if (divRes.status && cardRes.status) {
+        if (divRes.data.length === 0 && sp.hasSpContext()) {
+          // Semi-bootstrap: Don't create data, but tell App.tsx it's empty
+          // Actually the user wants "dados vão aparecer e prontos para o cadastro"
+          // Maybe just ensuring the lists are there is enough, but Arlen needs access.
+        }
+
         const sections: Section[] = divRes.data.map((d: any) => ({
           id: d.SectionId,
           spId: d.Id,
@@ -90,6 +96,16 @@ export function useDataPersistence() {
       }
 
       if (userRes.status) {
+        if (userRes.data.length === 0 && sp.hasSpContext()) {
+          try {
+            await sp.spListAddItem(LIST_USERS, { Title: 'Arlen Oliveira', Email: 'Arlen.Oliveira@dhl.com', Role: 'admin', Status: 'Ativo' });
+            await sp.spListAddItem(LIST_USERS, { Title: 'Arlen Loran', Email: 'arlenloran@gmail.com', Role: 'admin', Status: 'Ativo' });
+            const reUserRes = await sp.spListGetItems(LIST_USERS);
+            if (reUserRes.status) userRes.data = reUserRes.data;
+          } catch (e) {
+            console.error('Failed to seed users', e);
+          }
+        }
         setUsers(userRes.data.map((u: any) => ({
           id: String(u.Id),
           spId: u.Id,
