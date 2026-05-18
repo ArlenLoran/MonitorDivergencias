@@ -23,6 +23,7 @@ import {
   ResponsiveContainer, LineChart, Line 
 } from 'recharts';
 import type { Section, Metric, MetricHistory, User, AccessLevel } from './types';
+import { useDataPersistence } from './services/dataPersistence';
 
 const INITIAL_DATA: Section[] = [
   {
@@ -30,34 +31,34 @@ const INITIAL_DATA: Section[] = [
     title: "Qualidade operacional",
     metrics: [
       { 
-        id: '1', title: "Status separável", value: 12, status: 'error', lastUpdate: "13/05/2026, 20:37:06",
+        id: '1', title: "Status separável", value: 12, status: 'critical', lastUpdate: "13/05/2026, 20:37:06",
         objective: "Garantir que todos os itens marcados como separáveis possuam status válido no sistema para processamento.",
         rules: [
           "Regra 1: O item deve estar em uma área de picking ativa.",
           "Regra 2: O status do LPN deve ser 'Disponível' ou 'Reservado'."
         ],
         query: "SELECT COUNT(*) FROM inventory WHERE separable = true AND status NOT IN ('Available', 'Reserved')",
-        history: Array.from({ length: 12 }, (_, i) => ({ timestamp: `${10+i}:00`, value: Math.floor(Math.random() * 20) })),
+        history: Array.from({ length: 12 }, (_, i) => ({ date: `${10+i}:00`, value: Math.floor(Math.random() * 20) })),
         details: [
           { id: 'dt1', posicao: 'P-01-A', item: 'MOUSE LOGITECH G502', validade: 'N/A', lote: 'L1', quantidade: 5, motivo: 'Status Inválido' },
           { id: 'dt2', posicao: 'P-01-B', item: 'TECLADO RAZER', validade: 'N/A', lote: 'L2', quantidade: 2, motivo: 'Status Inválido' },
         ]
       },
       { 
-        id: '2', title: "RF's desbloqueados", value: 405, status: 'error', lastUpdate: "13/05/2026, 20:29:06", 
+        id: '2', title: "RF's desbloqueados", value: 405, status: 'critical', lastUpdate: "13/05/2026, 20:29:06", 
         objective: "Identificar o recebimento de inbound realizado utilizando RF que não esteja bloqueado.",
         rules: [
           "Regra 1: Área: Estar entre RSTG, SSTG Será considerado Não Auditável.",
           "Regra 2: Área: Estar entre RCKTAERBLO... Status: Diferente de Bloqueado e Recall. Será considerado incorreto."
         ],
         query: "SELECT COUNT(*) FROM rf_devices WHERE unlocked = true AND status != 'Blocked'",
-        history: Array.from({ length: 12 }, (_, i) => ({ timestamp: `${10+i}:00`, value: 350 + Math.floor(Math.random() * 100) })),
+        history: Array.from({ length: 12 }, (_, i) => ({ date: `${10+i}:00`, value: 350 + Math.floor(Math.random() * 100) })),
         details: [
           { id: 'd1', posicao: 'A-12-01', item: 'RECEPTOR RF-900', validade: 'N/A', lote: 'LT9920', quantidade: 150, motivo: 'Bloqueio de Qualidade' },
         ]
       },
-      { id: '3', title: "Recebimento de correlatos", value: 25, status: 'error', lastUpdate: "13/05/2026, 20:30:06", query: "SELECT * FROM receipts WHERE family = 'correlatos'", history: Array.from({ length: 10 }, (_, i) => ({ timestamp: `${10+i}:00`, value: 10 + i * 2 })) },
-      { id: '4', title: "Invoice manual", value: 18, status: 'error', lastUpdate: "13/05/2026, 20:33:06", query: "SELECT * FROM invoices WHERE manual = true" },
+      { id: '3', title: "Recebimento de correlatos", value: 25, status: 'critical', lastUpdate: "13/05/2026, 20:30:06", query: "SELECT * FROM receipts WHERE family = 'correlatos'", history: Array.from({ length: 10 }, (_, i) => ({ date: `${10+i}:00`, value: 10 + i * 2 })) },
+      { id: '4', title: "Invoice manual", value: 18, status: 'critical', lastUpdate: "13/05/2026, 20:33:06", query: "SELECT * FROM invoices WHERE manual = true" },
       { id: '5', title: "Pendência conferência", value: 0, status: 'ok', lastUpdate: "13/05/2026, 20:35:00", query: "SELECT * FROM pending_check" },
     ]
   },
@@ -65,10 +66,10 @@ const INITIAL_DATA: Section[] = [
     id: 'sec-2',
     title: "Validação sistêmica",
     metrics: [
-      { id: '6', title: "Status x Área", value: 333, status: 'error', lastUpdate: "13/05/2026, 20:29:53", query: "SELECT * FROM sys_val WHERE type = 'status_area'" },
-      { id: '7', title: "Família x Área", value: 2308, status: 'error', lastUpdate: "13/05/2026, 20:30:08", query: "SELECT * FROM sys_val WHERE type = 'family_area'" },
-      { id: '8', title: "Código verificador", value: 5542, status: 'error', lastUpdate: "13/05/2026, 20:31:09", query: "SELECT * FROM sys_val WHERE type = 'verifier'" },
-      { id: '9', title: "Flag de separável", value: 1132, status: 'error', lastUpdate: "13/05/2026, 20:31:20", query: "SELECT * FROM sys_val WHERE type = 'separable_flag'" },
+      { id: '6', title: "Status x Área", value: 333, status: 'critical', lastUpdate: "13/05/2026, 20:29:53", query: "SELECT * FROM sys_val WHERE type = 'status_area'" },
+      { id: '7', title: "Família x Área", value: 2308, status: 'critical', lastUpdate: "13/05/2026, 20:30:08", query: "SELECT * FROM sys_val WHERE type = 'family_area'" },
+      { id: '8', title: "Código verificador", value: 5542, status: 'critical', lastUpdate: "13/05/2026, 20:31:09", query: "SELECT * FROM sys_val WHERE type = 'verifier'" },
+      { id: '9', title: "Flag de separável", value: 1132, status: 'critical', lastUpdate: "13/05/2026, 20:31:20", query: "SELECT * FROM sys_val WHERE type = 'separable_flag'" },
       { id: '10', title: "Divergência lote", value: 0, status: 'ok', lastUpdate: "13/05/2026, 20:31:25", query: "SELECT * FROM sys_val WHERE type = 'batch_div'" },
     ]
   },
@@ -81,15 +82,15 @@ const INITIAL_DATA: Section[] = [
       { id: '13', title: "Status x Regra Aging", value: 0, status: 'ok', lastUpdate: "13/05/2026, 20:31:31" },
       { id: '14', title: "Manufatura futura", value: 0, status: 'ok', lastUpdate: "13/05/2026, 20:36:57" },
       { id: '15', title: "Expiração", value: 0, status: 'ok', lastUpdate: "13/05/2026, 20:37:01" },
-      { id: '16', title: "Quantidade de Aging", value: 525, status: 'error', lastUpdate: "13/05/2026, 20:37:08" },
+      { id: '16', title: "Quantidade de Aging", value: 525, status: 'critical', lastUpdate: "13/05/2026, 20:37:08" },
     ]
   }
 ];
 
 const INITIAL_USERS: User[] = [
-  { id: 'u-1', name: 'Arlen Loran', email: 'arlenloran@gmail.com', role: 'admin', lastLogin: '14/05/2026, 01:05:07' },
-  { id: 'u-2', name: 'Editor Operacional', email: 'editor@empresa.com', role: 'editor', lastLogin: '13/05/2026, 18:30:15' },
-  { id: 'u-3', name: 'Visualizador Geral', email: 'viewer@empresa.com', role: 'viewer', lastLogin: '14/05/2026, 00:15:44' },
+  { id: 'u-1', name: 'Arlen Loran', email: 'arlenloran@gmail.com', role: 'admin', lastActive: '14/05/2026, 01:05:07', status: 'Ativo' },
+  { id: 'u-2', name: 'Editor Operacional', email: 'editor@empresa.com', role: 'editor', lastActive: '13/05/2026, 18:30:15', status: 'Ativo' },
+  { id: 'u-3', name: 'Visualizador Geral', email: 'viewer@empresa.com', role: 'viewer', lastActive: '14/05/2026, 00:15:44', status: 'Ativo' },
 ];
 
 function useScrollIndicator(ref: RefObject<HTMLDivElement | null>) {
@@ -265,7 +266,7 @@ function MetricCard({ metric, onClick, isWarRoom, countdown }: MetricCardProps) 
         </div>
       </footer>
 
-      {isWarRoom && metric.status === 'error' && (
+      {isWarRoom && metric.status === 'critical' && (
         <div className="absolute inset-x-0 bottom-0 h-1 bg-red-500 animate-pulse" />
       )}
     </motion.div>
@@ -431,7 +432,7 @@ function DivergenceModal({ metric, onClose }: { metric: Metric, onClose: () => v
       >
         <header className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/50 gap-4">
           <div className="flex items-center gap-3">
-            <div className={`w-2 h-8 rounded-full ${metric.status === 'error' ? 'bg-brand-red' : 'bg-emerald-500'}`} />
+            <div className={`w-2 h-8 rounded-full ${metric.status === 'critical' ? 'bg-brand-red' : 'bg-emerald-500'}`} />
             <div>
               <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight italic">
                 Detalhes: <span className="text-brand-red">{metric.title}</span>
@@ -748,8 +749,8 @@ function DivergenceModal({ metric, onClose }: { metric: Metric, onClose: () => v
                   </div>
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
-                    <p className={`text-lg font-black ${metric.status === 'error' ? 'text-brand-red' : 'text-emerald-500'}`}>
-                      {metric.status === 'error' ? 'CRÍTICO' : 'ESTÁVEL'}
+                    <p className={`text-lg font-black ${metric.status === 'critical' ? 'text-brand-red' : 'text-emerald-500'}`}>
+                      {metric.status === 'critical' ? 'CRÍTICO' : 'ESTÁVEL'}
                     </p>
                   </div>
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -830,25 +831,39 @@ function Sidebar({ currentView, setView, isWarRoom }: { currentView: string, set
   );
 }
 
-function SectionManager({ data, setData, isWarRoom }: { data: Section[], setData: (d: Section[]) => void, isWarRoom: boolean }) {
+function SectionManager({ data, setData, isWarRoom, updateSection, deleteSection }: { 
+  data: Section[], 
+  setData: (d: Section[] | ((prev: Section[]) => Section[])) => void, 
+  isWarRoom: boolean,
+  updateSection: (s: Section) => Promise<void>,
+  deleteSection: (s: Section) => Promise<void>
+}) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const addSection = () => {
+  const saveSectionLocal = async (e: FormEvent) => {
+    e.preventDefault();
     if (!newName) return;
     const newSection: Section = { id: `sec-${Date.now()}`, title: newName, metrics: [] };
-    setData([...data, newSection]);
+    await updateSection(newSection);
+    setIsModalOpen(false);
     setNewName('');
   };
 
-  const deleteSection = (id: string) => {
-    setData(data.filter(s => s.id !== id));
-  };
-
-  const updateSection = (id: string) => {
-    setData(data.map(s => s.id === id ? { ...s, title: newName } : s));
+  const syncSectionName = async (id: string) => {
+    const section = data.find(s => s.id === id);
+    if (section) {
+      await updateSection({ ...section, title: newName });
+    }
     setEditingId(null);
     setNewName('');
+  };
+
+  const removeSection = async (section: Section) => {
+    if (confirm(`Excluir a divisão "${section.title}"?`)) {
+      await deleteSection(section);
+    }
   };
 
   return (
@@ -858,101 +873,127 @@ function SectionManager({ data, setData, isWarRoom }: { data: Section[], setData
           <h2 className={`text-4xl font-black italic uppercase tracking-tighter ${isWarRoom ? 'text-white' : 'text-slate-900'}`}>Gerenciar Divisões</h2>
           <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-2">Estrutura organizacional do dashboard</p>
         </div>
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="px-8 py-4 bg-brand-red text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-2 hover:bg-red-600 transition-all active:scale-95 shadow-xl shadow-red-900/20"
+        >
+          <Plus className="w-5 h-5" />
+          Nova Divisão
+        </button>
       </header>
 
-      <div className={`p-8 rounded-3xl border ${isWarRoom ? 'bg-[#0f1125] border-indigo-900/30' : 'bg-white border-slate-200 shadow-sm'}`}>
-        <div className="flex gap-4 mb-10">
-          <input 
-            type="text" 
-            placeholder="Nome da nova divisão..."
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            className={`flex-grow px-6 py-4 rounded-2xl font-bold transition-all outline-none focus:ring-2 focus:ring-brand-red/20 ${
-              isWarRoom ? 'bg-slate-950 border-indigo-900/50 text-white' : 'bg-slate-50 border-slate-200'
-            }`}
-          />
-          <button 
-            onClick={addSection}
-            className="px-8 py-4 bg-brand-red text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-2 hover:bg-red-600 transition-all active:scale-95 shadow-xl shadow-red-900/20"
-          >
-            <Plus className="w-5 h-5" />
-            Adicionar
-          </button>
-        </div>
+      <div className="grid gap-4">
+        {data.map((section) => (
+          <div key={section.id} className={`p-6 rounded-2xl border flex items-center justify-between group transition-all ${
+            isWarRoom ? 'bg-slate-950/50 border-indigo-900/20 hover:border-indigo-500/40' : 'bg-slate-50/50 border-slate-100 hover:border-slate-300'
+          }`}>
+            {editingId === section.id ? (
+              <input 
+                autoFocus
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onBlur={() => syncSectionName(section.id)}
+                onKeyDown={(e) => e.key === 'Enter' && syncSectionName(section.id)}
+                className={`bg-transparent font-black italic uppercase text-xl outline-none border-b-2 border-brand-red ${isWarRoom ? 'text-white' : 'text-slate-900'}`}
+              />
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-brand-red/10 flex items-center justify-center text-brand-red font-black">
+                  {section.metrics.length}
+                </div>
+                <h3 className={`text-xl font-black italic uppercase tracking-tight ${isWarRoom ? 'text-white' : 'text-slate-900'}`}>{section.title}</h3>
+              </div>
+            )}
+            
+            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button 
+                onClick={() => { setEditingId(section.id); setNewName(section.title); }}
+                className={`p-3 rounded-xl transition-colors ${isWarRoom ? 'hover:bg-white/5 text-indigo-400' : 'hover:bg-white text-slate-400 hover:text-slate-900'}`}
+              >
+                <Edit2 className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={() => removeSection(section)}
+                className={`p-3 rounded-xl transition-colors ${isWarRoom ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-white text-slate-400 hover:text-brand-red'}`}
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
 
-        <div className="grid gap-4">
-          {data.map((section) => (
-            <div key={section.id} className={`p-6 rounded-2xl border flex items-center justify-between group transition-all ${
-              isWarRoom ? 'bg-slate-950/50 border-indigo-900/20 hover:border-indigo-500/40' : 'bg-slate-50/50 border-slate-100 hover:border-slate-300'
-            }`}>
-              {editingId === section.id ? (
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className={`w-full max-w-lg rounded-3xl p-8 ${isWarRoom ? 'bg-[#0f1125] text-white' : 'bg-white text-slate-900'}`}
+            >
+              <h3 className="text-2xl font-black italic uppercase mb-6">Nova Divisão</h3>
+              <form onSubmit={saveSectionLocal} className="space-y-6">
                 <input 
-                  autoFocus
+                  required
+                  placeholder="Nome da Divisão"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  onBlur={() => updateSection(section.id)}
-                  onKeyDown={(e) => e.key === 'Enter' && updateSection(section.id)}
-                  className={`bg-transparent font-black italic uppercase text-xl outline-none border-b-2 border-brand-red ${isWarRoom ? 'text-white' : 'text-slate-900'}`}
+                  className={`w-full px-6 py-4 rounded-2xl font-bold outline-none ${isWarRoom ? 'bg-slate-950 border-indigo-900/50' : 'bg-slate-50 border-slate-200'}`}
                 />
-              ) : (
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-brand-red/10 flex items-center justify-center text-brand-red font-black">
-                    {section.metrics.length}
-                  </div>
-                  <h3 className={`text-xl font-black italic uppercase tracking-tight ${isWarRoom ? 'text-white' : 'text-slate-900'}`}>{section.title}</h3>
+                <div className="flex gap-4">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 border rounded-2xl font-black uppercase text-xs">Cancelar</button>
+                  <button type="submit" className="flex-1 py-4 bg-brand-red text-white rounded-2xl font-black uppercase text-xs">Salvar</button>
                 </div>
-              )}
-              
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button 
-                  onClick={() => { setEditingId(section.id); setNewName(section.title); }}
-                  className={`p-3 rounded-xl transition-colors ${isWarRoom ? 'hover:bg-white/5 text-indigo-400' : 'hover:bg-white text-slate-400 hover:text-slate-900'}`}
-                >
-                  <Edit2 className="w-5 h-5" />
-                </button>
-                <button 
-                  onClick={() => deleteSection(section.id)}
-                  className={`p-3 rounded-xl transition-colors ${isWarRoom ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-white text-slate-400 hover:text-brand-red'}`}
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function MetricManager({ data, setData, isWarRoom }: { data: Section[], setData: (d: Section[]) => void, isWarRoom: boolean }) {
+function MetricManager({ data, setData, isWarRoom, updateMetric, deleteMetric }: { 
+  data: Section[], 
+  setData: (d: Section[] | ((prev: Section[]) => Section[])) => void, 
+  isWarRoom: boolean,
+  updateMetric: (sectionId: string, metric: Metric) => Promise<void>,
+  deleteMetric: (metricId: string, spId: number, resultTable?: string) => Promise<void>
+}) {
   const [selectedSection, setSelectedSection] = useState<string>(data[0]?.id || '');
   const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
+  const [editingMetricSectionId, setEditingMetricSectionId] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const saveMetric = (e: FormEvent) => {
+  useEffect(() => {
+    if (!selectedSection && data.length > 0) {
+      setSelectedSection(data[0].id);
+    }
+  }, [data, selectedSection]);
+
+  const saveMetricLocal = async (e: FormEvent) => {
     e.preventDefault();
-    if (!editingMetric) return;
+    if (!editingMetric || !editingMetricSectionId) return;
 
-    const updatedData = data.map(s => {
-      if (s.id === selectedSection) {
-        const metricExists = s.metrics.find(m => m.id === editingMetric.id);
-        if (metricExists) {
-          return { ...s, metrics: s.metrics.map(m => m.id === editingMetric.id ? editingMetric : m) };
-        } else {
-          return { ...s, metrics: [...s.metrics, { ...editingMetric, id: Date.now().toString(), status: 'ok', lastUpdate: new Date().toLocaleString(), history: [] }] };
-        }
-      }
-      return s;
-    });
+    const metricId = editingMetric.id || `m-${Date.now()}`;
+    const metricToSave: Metric = {
+      ...editingMetric,
+      id: metricId,
+      status: editingMetric.status || 'info',
+      lastUpdate: editingMetric.lastUpdate || new Date().toLocaleString('pt-BR'),
+      history: editingMetric.history || []
+    };
 
-    setData(updatedData);
+    await updateMetric(editingMetricSectionId, metricToSave);
     setIsModalOpen(false);
     setEditingMetric(null);
   };
 
-  const deleteMetric = (metricId: string) => {
-    setData(data.map(s => ({ ...s, metrics: s.metrics.filter(m => m.id !== metricId) })));
+  const removeMetric = async (metric: Metric) => {
+    if (confirm('Excluir este card?')) {
+      await deleteMetric(metric.id, metric.spId!, metric.resultTable);
+    }
   };
 
   return (
@@ -963,7 +1004,11 @@ function MetricManager({ data, setData, isWarRoom }: { data: Section[], setData:
           <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-2">Métricas e regras de negócio</p>
         </div>
         <button 
-          onClick={() => { setEditingMetric({} as Metric); setIsModalOpen(true); }}
+          onClick={() => { 
+            setEditingMetric({} as Metric); 
+            setEditingMetricSectionId(selectedSection);
+            setIsModalOpen(true); 
+          }}
           className="px-8 py-4 bg-brand-red text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-2 hover:bg-red-600 transition-all active:scale-95 shadow-xl shadow-red-900/20"
         >
           <Plus className="w-5 h-5" />
@@ -978,8 +1023,8 @@ function MetricManager({ data, setData, isWarRoom }: { data: Section[], setData:
             onClick={() => setSelectedSection(s.id)}
             className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] whitespace-nowrap transition-all ${
               selectedSection === s.id 
-              ? 'bg-brand-red text-white shadow-lg' 
-              : `${isWarRoom ? 'bg-[#0f1125] text-slate-500 border border-indigo-900/30' : 'bg-white text-slate-400 border border-slate-200'}`
+              ? 'bg-brand-red text-white shadow-lg shadow-red-900/40' 
+              : isWarRoom ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-white border-slate-200'
             }`}
           >
             {s.title}
@@ -1005,13 +1050,17 @@ function MetricManager({ data, setData, isWarRoom }: { data: Section[], setData:
 
             <div className="flex gap-2 justify-end pt-4 border-t border-white/5">
               <button 
-                onClick={() => { setEditingMetric(metric); setIsModalOpen(true); }}
+                onClick={() => { 
+                  setEditingMetric(metric); 
+                  setEditingMetricSectionId(selectedSection);
+                  setIsModalOpen(true); 
+                }}
                 className={`p-3 rounded-xl transition-colors ${isWarRoom ? 'hover:bg-white/5 text-indigo-400' : 'hover:bg-slate-50 text-slate-400 hover:text-slate-900'}`}
               >
                 <Edit2 className="w-5 h-5" />
               </button>
               <button 
-                onClick={() => deleteMetric(metric.id)}
+                onClick={() => removeMetric(metric)}
                 className={`p-3 rounded-xl transition-colors ${isWarRoom ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-slate-50 text-slate-400 hover:text-brand-red'}`}
               >
                 <Trash2 className="w-5 h-5" />
@@ -1035,8 +1084,20 @@ function MetricManager({ data, setData, isWarRoom }: { data: Section[], setData:
                 <button onClick={() => setIsModalOpen(false)}><X className="w-6 h-6" /></button>
               </div>
 
-              <form onSubmit={saveMetric} className="flex flex-col flex-grow overflow-hidden">
+              <form onSubmit={saveMetricLocal} className="flex flex-col flex-grow overflow-hidden">
                 <div className="flex-grow overflow-y-auto pr-2 space-y-6 scrollbar-hide py-2">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Divisão Responsável</label>
+                    <select 
+                      required
+                      value={editingMetricSectionId}
+                      onChange={(e) => setEditingMetricSectionId(e.target.value)}
+                      className={`w-full px-6 py-4 rounded-2xl font-bold transition-all outline-none focus:ring-2 focus:ring-brand-red/20 ${isWarRoom ? 'bg-slate-950 border-indigo-900/50 text-white' : 'bg-slate-50 border-slate-200'}`}
+                    >
+                      <option value="">Selecione a divisão</option>
+                      {data.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                    </select>
+                  </div>
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Título do Card</label>
                     <input 
@@ -1116,7 +1177,7 @@ function UserManager({ users, setUsers, isWarRoom }: { users: User[], setUsers: 
     if (users.find(u => u.id === editingUser.id)) {
       setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
     } else {
-      setUsers([...users, { ...editingUser, id: `u-${Date.now()}`, lastLogin: 'Nunca' }]);
+      setUsers([...users, { ...editingUser, id: `u-${Date.now()}`, lastActive: 'Nunca', status: 'Ativo' }]);
     }
     setIsModalOpen(false);
     setEditingUser(null);
@@ -1174,7 +1235,7 @@ function UserManager({ users, setUsers, isWarRoom }: { users: User[], setUsers: 
                     {user.role}
                   </span>
                 </td>
-                <td className={`px-8 py-6 font-mono text-[11px] ${isWarRoom ? 'text-slate-500' : 'text-slate-400'}`}>{user.lastLogin}</td>
+                <td className={`px-8 py-6 font-mono text-[11px] ${isWarRoom ? 'text-slate-500' : 'text-slate-400'}`}>{user.lastActive}</td>
                 <td className="px-8 py-6 text-right">
                   <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => { setEditingUser(user); setIsModalOpen(true); }} className={`p-2 rounded-lg transition-colors ${isWarRoom ? 'hover:bg-white/5 text-indigo-400' : 'hover:bg-white text-slate-400 hover:text-slate-900'}`}><Edit2 className="w-4 h-4" /></button>
@@ -1431,20 +1492,35 @@ function DashboardView({ data, isWarRoom, refreshCountdown, isRefreshing, refres
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [data, setData] = useState<Section[]>(INITIAL_DATA);
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const { 
+    data, 
+    setData, 
+    users, 
+    setUsers, 
+    loading, 
+    updateMetric, 
+    deleteMetric, 
+    updateSection, 
+    deleteSection, 
+    executeMetricQuery 
+  } = useDataPersistence();
+  
   const [currentView, setCurrentView] = useState('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState<Metric | null>(null);
   const [isWarRoom, setIsWarRoom] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'layout' | 'log'>('layout');
-  const [layoutConfig, setLayoutConfig] = useState<{title: string, width: number}[]>(
-    INITIAL_DATA.map(s => ({ title: s.title, width: s.title === 'Validação de saldo' ? 100 : 50 }))
-  );
+  const [layoutConfig, setLayoutConfig] = useState<{title: string, width: number}[]>([]);
   const [refreshCountdown, setRefreshCountdown] = useState(30);
   const [metricCountdowns, setMetricCountdowns] = useState<Record<string, number>>({});
   const [eventLog, setEventLog] = useState<{ id: string, message: string, time: string, type: 'info' | 'critical' | 'success' }[]>([]);
+
+  useEffect(() => {
+    if (data.length > 0 && layoutConfig.length === 0) {
+      setLayoutConfig(data.map(s => ({ title: s.title, width: s.title === 'Validação de saldo' ? 100 : 50 })));
+    }
+  }, [data, layoutConfig.length]);
 
   // Set view based on URL
   useEffect(() => {
@@ -1466,7 +1542,6 @@ export default function App() {
   // Individual metric refresh logic
   useEffect(() => {
     const timer = setInterval(() => {
-      const refreshedIds: string[] = [];
       setMetricCountdowns(prev => {
         const next = { ...prev };
         data.forEach(s => {
@@ -1475,7 +1550,21 @@ export default function App() {
               if (next[m.id] === undefined) {
                 next[m.id] = m.refreshInterval;
               } else if (next[m.id] <= 1) {
-                refreshedIds.push(m.id);
+                // Refresh execution
+                executeMetricQuery(m).then(result => {
+                  if (result) {
+                    setData(prevData => prevData.map(ps => ({
+                      ...ps,
+                      metrics: ps.metrics.map(pm => pm.id === m.id ? { 
+                        ...pm, 
+                        value: result.value, 
+                        status: result.status, 
+                        lastUpdate: new Date().toLocaleString('pt-BR'),
+                        details: result.details 
+                      } : pm)
+                    })));
+                  }
+                });
                 next[m.id] = m.refreshInterval;
               } else {
                 next[m.id] -= 1;
@@ -1487,21 +1576,14 @@ export default function App() {
         });
         return next;
       });
-
-      if (refreshedIds.length > 0) {
-        setData(prev => prev.map(s => ({
-          ...s,
-          metrics: s.metrics.map(m => refreshedIds.includes(m.id) ? { ...m, lastUpdate: new Date().toLocaleString('pt-BR') } : m)
-        })));
-      }
     }, 1000);
     return () => clearInterval(timer);
-  }, [data]);
+  }, [data, executeMetricQuery, setData]);
 
-  // Auto-refresh logic (kept from original)
+  // Global Auto-refresh logic
   useEffect(() => {
     const timer = setInterval(() => {
-      setRefreshCountdown(prev => {
+      setRefreshCountdown((prev) => {
         if (prev <= 1) {
           refreshData();
           return 30;
@@ -1535,7 +1617,7 @@ export default function App() {
               }
 
               const newHistoryPoint: MetricHistory = {
-                timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                date: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
                 value: newValue
               };
 
@@ -1543,7 +1625,7 @@ export default function App() {
                 ...m,
                 value: newValue,
                 history: [...(m.history || []).slice(1), newHistoryPoint],
-                status: newValue > 0 ? 'error' : 'ok'
+                status: newValue > 15 ? 'critical' : (newValue > 0 ? 'info' : 'ok')
               };
             }
             return m;
@@ -1575,7 +1657,7 @@ export default function App() {
   };
 
   const totalDivergences = data.reduce((acc, section) => acc + section.metrics.reduce((mAcc, m) => mAcc + Number(m.value) || 0, 0), 0);
-  const criticalMetrics = data.reduce((acc, section) => acc + section.metrics.filter(m => m.status === 'error').length, 0);
+  const criticalMetrics = data.reduce((acc, section) => acc + section.metrics.filter(m => m.status === 'critical').length, 0);
 
   const handleWidthChange = (title: string, width: number) => {
     setLayoutConfig(prev => prev.map(c => c.title === title ? { ...c, width } : c));
@@ -1611,6 +1693,16 @@ export default function App() {
   };
 
   const isLiveView = location.pathname === '/live';
+
+  if (loading) {
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center transition-colors duration-700 ${isWarRoom ? 'bg-[#050510] text-white' : 'bg-slate-50 text-slate-900'}`}>
+        <RefreshCcw className="w-12 h-12 text-brand-red animate-spin mb-4" />
+        <h2 className="text-xl font-bold tracking-widest uppercase italic">Carregando Configurações...</h2>
+        <p className="text-slate-500 text-xs mt-2">Sincronizando com SharePoint</p>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen transition-colors duration-700 ${isWarRoom ? 'bg-[#050510] text-white' : 'bg-slate-50 text-slate-900'}`}>
@@ -1667,8 +1759,8 @@ export default function App() {
               />
             </div>
           } />
-          <Route path="/divisions" element={<SectionManager data={data} setData={setData} isWarRoom={isWarRoom} />} />
-          <Route path="/cards" element={<MetricManager data={data} setData={setData} isWarRoom={isWarRoom} />} />
+          <Route path="/divisions" element={<SectionManager data={data} setData={setData} isWarRoom={isWarRoom} updateSection={updateSection} deleteSection={deleteSection} />} />
+          <Route path="/cards" element={<MetricManager data={data} setData={setData} isWarRoom={isWarRoom} updateMetric={updateMetric} deleteMetric={deleteMetric} />} />
           <Route path="/users" element={<UserManager users={users} setUsers={setUsers} isWarRoom={isWarRoom} />} />
         </Routes>
 
